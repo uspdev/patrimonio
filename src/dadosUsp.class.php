@@ -4,40 +4,58 @@ namespace Uspdev;
 
 class dadosUsp
 {
-
-    /* Classe que dado um patrimonio, busca na base da usp e faz cache da informação.
-     * ele retorna um objeto redbean que é lido do cache
-     * 
+    /* Classe que:
+     * dado um número de patrimonio, busca na base da usp e mostra suas informações
+     * dado um número USP, retorna a lista de patrimônios associados a essa pessoa
      */
 
-//construtor da classe
-    public function dadosUsp()
+    private $c = array();
+
+    public function __construct()
     {
+        $this->c['numpat'] = array(
+            'CURLOPT_URL' => "https://uspdigital.usp.br/mercurioweb/PatrimonioMostrar",
+            'CURLOPT_REFERER' => "https://uspdigital.usp.br/mercurioweb/ainumpatimonio.jsp?codmnu=248",
+            'naoexiste_str' => "Não existe Patrimônio nas condições especificadas!"
+        );
+        $this->c['numpats'] = array(
+            'CURLOPT_URL' => "https://uspdigital.usp.br/mercurioweb/PatrimonioResponsavelListar",
+            'CURLOPT_REFERER' => "https://uspdigital.usp.br/mercurioweb/ainumpatimonio.jsp?codmnu=247",
+            'captcha_url' => 'https://uspdigital.usp.br/mercurioweb/CriarImagemTuring',
+            'CURLOPT_COOKIEFILE' => sys_get_temp_dir() . '/' . session_id() . '.cookie', //lembra dos cookies que guardamos quando digitamos o captcha?
+            'CURLOPT_COOKIEJAR' => sys_get_temp_dir() . '/' . session_id() . '.cookie'
+        );
     }
 
     public function fetchNumpat($numpat)
     {
-        global $c;
-        $args = $c['numpat'];
+        $args = $this->c['numpat'];
         $args['postfields'] = 'numpat=' . $numpat . '&saida=1'; // pede saida em xml
         $args['captcha'] = false; //sem captcha
-        return dadosUsp::curlPost($args);
+        return utf8_encode($this->curlPost($args));
     }
 
-    public static function fetchNumpats($codpes, $captcha_string)
+    /*
+     * dado o número usp e o captcha este método retorna os
+     * números de patrimônios encontrados na forma de array
+     */
+    public function fetchNumpats($codpes, $captcha_string)
     {
-        global $c;
-        $args = $c['numpats'];
+        // primeiro tem de pegar o captcha com getCaptchaImg()
+        $args = $this->c['numpats'];
         $args['postfields'] = 'codpes=' . $codpes . '&chars=' . $captcha_string; // pede saida em xml
         $args['captcha'] = true; //com captcha
-        return dadosUsp::curlPost($args);
+        $ret = dadosUsp::curlPost($args);
+        preg_match_all('/\d{3}.\d{6}/', $ret, $matches);
+        return $matches[0];
     }
 
-    // imprime na tela a imagem do captcha para listar os dados usp por responsavel
+    /*
+     * Imprime na tela a imagem do captcha para listar os dados usp por responsavel
+     */
     public function getCaptchaImg()
     {
-        global $c;
-        $args = $c['numpats'];
+        $args = $this->c['numpats'];
         $options = array(
             CURLOPT_URL => $args['captcha_url'], //url que produz a imagem do captcha.
             CURLOPT_COOKIEFILE => $args['CURLOPT_COOKIEFILE'],
@@ -86,8 +104,9 @@ class dadosUsp
         $httpResponse = curl_exec($ch);
         curl_close($ch);
 
-        //if (file_exists($args['CURLOPT_COOKIEFILE']))
-        //   unlink($args['CURLOPT_COOKIEFILE']);
+        // vamos apagar o cookie do fs
+        if (file_exists($args['CURLOPT_COOKIEFILE']))
+           unlink($args['CURLOPT_COOKIEFILE']);
 
         if (!$httpResponse) {
             // todo: lançar exceções aqui é bom? teria de tratar mais alto nivel eu nao gerar excessão?
@@ -114,7 +133,7 @@ class dadosUsp
         return array_filter($array);
     }
 
-    public function show_data($xml) //just for testing
+    public static function showData($xml) // mostra formatado em html (para testes)
     {
         $data = dadosUsp::xml2array($xml);
         $ret = '';
@@ -123,117 +142,6 @@ class dadosUsp
         }
         return $ret;
     }
-
-    public function cachePessoas($find)
-    {
-        if (!is_array($find)) die('cachepessoas not array');
-        //print_r($find);exit;
-        $pessoa = R::find('cachedadosusppessoas', ' codpes = ? ', array($find['codpes']));
-        if (count($pessoa) === 0) {
-            $pessoa = R::dispense('cachedadosusppessoas');
-            $pessoa->codpes = $find['codpes'];
-            $pessoa->nompes = $find['nompes'];
-            R::store($pessoa);
-        } else {
-        }
-        return true;
-    }
-
-    /* Query USP database and fill cache accordly.
-     * Return numpat data
-     */
-    public static function cacheBens($numpat)
-    {
-        global $c;
-
-        $pat = R::find('cachedadosuspbens', 'numpat=?', [$numpat]);
-
-        if (count($pat) > 1) die('Multiple records'); // die for inconsistency on database
-
-        if (count($pat) < 1) { // if not in database load a new one
-            if ($c['dbg']) echo 'No record. Loading ...';
-            try {
-                $xml_new = utf8_encode(dadosUsp::fetchNumpat($numpat));
-            } catch (Exception $e) {
-                // as excessões podem ser tratadas aqui.
-                // caso já esteja no cache simplesmente não atualiza
-                //print_r($e);
-                $xml_new = '';
-
-                //die('não leu dados usp: ' . $e);
-            }
-
-            //echo 'xmlnew '.$xml_new;exit;
-
-            // se a busca na base usp retornar um html de erro na verdade nao é xml
-            if (strpos($xml_new, '<!DOCTYPE HTML') === 0) {
-                $xml_new = '';
-            }
-
-            if ($xml_new) {
-                $pat = R::dispense('cachedadosuspbens');
-                $pat->numpat = $numpat;
-                $pat->timestamp = R::isoDateTime();
-                $pat->xml = $xml_new;
-                $data_new = dadosUsp::xml2array(utf8_decode($xml_new));
-                $pat->codpes = $data_new['Codpes'];
-                $pat->nompes = $data_new['Nompes'];
-                $pat->sglcendsp = $data_new['Sglcendsp'];
-                $pat->nomsgpitmmat = $data_new['Nomsgpitmmat'];
-                $pat->stabem = $data_new['Stabem'];
-                $pat->codlocusp = empty($data_new['Codlocusp']) ? 0 : $data_new['Codlocusp'];
-                R::store($pat);
-
-                $data_status = 'novo registro';
-            } else {
-                return false;
-            }
-
-        } else { // if in database update accordly
-            // check cache age
-            $pat = array_pop($pat);
-            //print_r($pat);
-            $cache_age = time() - strtotime($pat->timestamp);
-            if ($cache_age < $c['cache_age']) {
-                if ($c['dbg']) echo 'cache age = ' . $cache_age . ' seconds. Nothing to do.';
-                $data_status = 'usando cache';
-            } else {
-                if ($c['dbg']) echo 'cache expired. ';
-                try {
-                    $xml_new = utf8_encode(dadosUsp::fetchNumpat($numpat));
-                } catch (Exception $e) {
-                    die('não leu dados usp: ' . $e);
-                }
-
-                if ($pat['xml'] == $xml_new) { // se dados são identicos
-                    $pat->timestamp = R::isoDateTime(); // atualiza somente o timestamp
-                    if ($c['dbg']) echo 'no data change. timestamp renewed at ' . $pat->timestamp;
-                    $data_status = 'cache renovado';
-                } else {
-                    // dados são diferentes, temos de tratar
-                    if ($c['dbg']) {
-                        echo 'data changed. Showing the difference:';
-                        $data = dadosUsp::xml2array($pat['xml']);
-                        $data_new = dadosUsp::xml2array($xml_new);
-                        foreach ($data as $field => $val) {
-                            echo '<br>' . $field . ': ' . $val;
-                            if ($val != $data_new[$field]) {
-                                echo ' - ' . $data_new[$field] . ' (new)';
-                            }
-                        }
-                    }
-                    $pat->xml = $xml_new;
-                    $data_status = 'cache alterado';
-                }
-                R::store($pat);
-                if ($c['dbg']) echo '<br>Changes stored.';
-            }
-        }
-        $pat['data_status'] = $data_status;
-        dadosUsp::cachePessoas(array('codpes' => $pat->codpes, 'nompes' => $pat->nompes));
-        return $pat;
-    }
-
 }
 
 ?>

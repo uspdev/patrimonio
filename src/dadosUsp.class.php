@@ -1,5 +1,7 @@
 <?php
 
+namespace Uspdev;
+
 class dadosUsp
 {
 

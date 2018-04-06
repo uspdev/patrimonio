@@ -1,0 +1,20 @@
+{
+    "name": "uspdev/patrimonio",
+    "minimum-stability": "dev",
+    "homepage": "https://github.com/uspdev/patrimonio",
+    "description": "biblioteca que busca informações públicas sobre bens patrimoniais da USP",
+    "type": "library",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Masaki Kawabata Neto",
+            "email": "kawabata@usp.br",
+            "homepage": "https://github.com/masakik"
+        }
+    ],
+    "autoload": {
+        "psr-4" : {
+            "Uspdev\\" : "src"
+        }
+    }
+}

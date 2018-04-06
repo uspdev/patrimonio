@@ -18,6 +18,6 @@ ele faz um cache dos dados assim não precisa consultar toda vez. O timeout é 3
 
 ### Uso
 
-   $patrimonio = new dadosUsp;
-   $meu_monitor = $patrimonio->fetchNumpat('008.041864');
-   print_r($meu_monitor);
+    $patrimonio = new dadosUsp;
+    $meu_monitor = $patrimonio->fetchNumpat('008.041864');
+    print_r($meu_monitor);

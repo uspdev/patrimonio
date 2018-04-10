@@ -105,8 +105,8 @@ class dadosUsp
         curl_close($ch);
 
         // vamos apagar o cookie do fs
-        if (file_exists($args['CURLOPT_COOKIEFILE']))
-           unlink($args['CURLOPT_COOKIEFILE']);
+        //if (file_exists($args['CURLOPT_COOKIEFILE']))
+        //   unlink($args['CURLOPT_COOKIEFILE']);
 
         if (!$httpResponse) {
             // todo: lançar exceções aqui é bom? teria de tratar mais alto nivel eu nao gerar excessão?

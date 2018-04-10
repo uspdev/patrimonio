@@ -1,6 +1,6 @@
 # Patrimonio USP
 
-Esta classe busca informções sobre bens patrimoniais que estão publicas na USP.
+Esta classe busca informações sobre bens patrimoniais que estão publicas na USP.
 
 ### Instalação
 
@@ -12,4 +12,4 @@ Esta classe busca informções sobre bens patrimoniais que estão publicas na US
     $meu_monitor = $patrimonio->fetchNumpat('008.041864');
     print_r($meu_monitor);
     
-Tem exemplos na pasta samples
+Tem exemplos na pasta sample

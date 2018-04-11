@@ -2,6 +2,13 @@
 
 Esta classe busca informações sobre bens patrimoniais que estão publicas na USP.
 
+### Requsitos
+
+Esta classe depende de:
+
+    php-xml
+    php-curl
+
 ### Instalação
 
     composer require uspdev/patrimonio

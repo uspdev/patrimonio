@@ -1,5 +1,5 @@
 <?php
-include '../src/Patrimonio.class.php';
+include '../src/Patrimonio.php';
 //use Uspdev\Patrimonio;
 
 $stabem = '';

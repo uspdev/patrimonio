@@ -9,7 +9,7 @@ class dadosUsp
      * dado um número USP, retorna a lista de patrimônios associados a essa pessoa
      */
 
-    private $c = array();
+    protected $c = array();
 
     function __construct()
     {
@@ -103,7 +103,7 @@ class dadosUsp
         }
     }
 
-    private function curlPost(array $args)
+    protected function curlPost(array $args)
     {
         $options = array(
             CURLOPT_URL => $args['CURLOPT_URL'],
@@ -147,8 +147,6 @@ class dadosUsp
             return false;
         }
 
-        //file_put_contents(sys_get_temp_dir() . '/dadosUSP.tmp', $httpResponse);
-
         return $httpResponse;
     }
 
@@ -163,7 +161,8 @@ class dadosUsp
         return array_filter($array);
     }
 
-    public static function showData($xml) // mostra formatado em html (para testes)
+    // mostra formatado em html (para testes)
+    public static function showData($xml)
     {
         $data = dadosUsp::xml2array($xml);
         $ret = '';

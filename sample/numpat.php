@@ -1,12 +1,13 @@
 <?php
-include '../src/dadosUsp.class.php';
-use Uspdev\dadosUsp;
+include '../src/Patrimonio.class.php';
+//use Uspdev\Patrimonio;
 
 $stabem = '';
 $bem_html = '';
 if (!empty($_POST)) {
     $numpat = $_POST['numpat'];
-    $patrimonio = new dadosUsp;
+    $patrimonio = new Uspdev\Patrimonio;
+    $ativo = $patrimonio->ativo($numpat) ? 'Sim' : 'Não';
     $stabem = $patrimonio->stabem($numpat);
     $bem_xml = $patrimonio->fetchNumpat($numpat);
     if ($bem_xml) {
@@ -29,6 +30,9 @@ if (!empty($_POST)) {
     <input type="text" name="numpat" value="008.041864">
     <input type="submit" value="OK">
 </form>
+<div>
+    Ativo: <?php echo $ativo; ?>
+</div>
 <div>
     Stabem: <?php echo $stabem; ?>
 </div>

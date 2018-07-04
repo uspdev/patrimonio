@@ -9,14 +9,15 @@ class dadosUsp
      * dado um número USP, retorna a lista de patrimônios associados a essa pessoa
      */
 
-    private $c = array();
+    protected $c = array();
 
-    public function __construct()
+    function __construct()
     {
         $this->c['numpat'] = array(
             'CURLOPT_URL' => "https://uspdigital.usp.br/mercurioweb/PatrimonioMostrar",
             'CURLOPT_REFERER' => "https://uspdigital.usp.br/mercurioweb/ainumpatimonio.jsp?codmnu=248",
-            'naoexiste_str' => "Não existe Patrimônio nas condições especificadas!"
+            'naoexiste_str' => "Não existe Patrimônio nas condições especificadas!",
+            'naoexiste_str2' => "Informe um número de patrimônio válido."
         );
         $this->c['numpats'] = array(
             'CURLOPT_URL' => "https://uspdigital.usp.br/mercurioweb/PatrimonioResponsavelListar",
@@ -27,25 +28,37 @@ class dadosUsp
         );
     }
 
+    function __destruct()
+    {
+        // todo: fazer cache dos dados da conexão e apagar quando terminar a execução
+    }
+
+    /*
+     * Retorna os dados do bem no formato xml ou false se não existir
+     */
     public function fetchNumpat($numpat)
     {
         $args = $this->c['numpat'];
         $args['postfields'] = 'numpat=' . $numpat . '&saida=1'; // pede saida em xml
         $args['captcha'] = false; //sem captcha
-        return utf8_encode($this->curlPost($args));
+        if ($ret = $this->curlPost($args)) {
+            return utf8_encode($ret);
+        }
+        return false;
     }
 
     /*
      * dado o número usp e o captcha este método retorna os
      * números de patrimônios encontrados na forma de array
+     * ou array vazio
      */
     public function fetchNumpats($codpes, $captcha_string)
     {
         // primeiro tem de pegar o captcha com getCaptchaImg()
         $args = $this->c['numpats'];
-        $args['postfields'] = 'codpes=' . $codpes . '&chars=' . $captcha_string; // pede saida em xml
+        $args['postfields'] = 'codpes=' . $codpes . '&chars=' . $captcha_string;
         $args['captcha'] = true; //com captcha
-        $ret = dadosUsp::curlPost($args);
+        $ret = dadosUsp::curlPost($args); // aqui a saída é html, vamos procurar os dados dentro dele
         preg_match_all('/\d{3}.\d{6}/', $ret, $matches);
         return $matches[0];
     }
@@ -76,22 +89,36 @@ class dadosUsp
         return true;
     }
 
-    private function curlPost(array $args)
+    /*
+     * Retorna o estado do patrimônio (Ativo, Baixado, Transferido, etc)
+     * ou falso se não encontrado
+    */
+    public function stabem($numpat)
+    {
+        if ($numpat_xml = $this->fetchNumpat($numpat)) {
+            $numpat_array = $this->xml2array($numpat_xml);
+            return $numpat_array['Stabem'];
+        } else {
+            return false;
+        }
+    }
+
+    protected function curlPost(array $args)
     {
         $options = array(
             CURLOPT_URL => $args['CURLOPT_URL'],
             CURLOPT_REFERER => $args['CURLOPT_REFERER'],
             CURLOPT_POSTFIELDS => $args['postfields'],
-            CURLOPT_VERBOSE => 1,
+            CURLOPT_VERBOSE => false, // nao mostra dados da conexao
             CURLOPT_AUTOREFERER => false,
             // Turn off the server and peer verification (TrustManager Concept).
-            CURLOPT_SSL_VERIFYPEER => FALSE,
-            CURLOPT_SSL_VERIFYHOST => FALSE,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
 
             CURLOPT_USERAGENT => "Mozilla/5.0 (Windows; U; Windows NT 5.0; en-US; rv:1.4) Gecko/20030624 Netscape/7.1 (ax)",
-            CURLOPT_FOLLOWLOCATION => 1,
-            CURLOPT_RETURNTRANSFER => 1,
-            CURLOPT_POST => 1
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true
         );
 
         if ($args['captcha'] == true) {
@@ -109,16 +136,17 @@ class dadosUsp
         //   unlink($args['CURLOPT_COOKIEFILE']);
 
         if (!$httpResponse) {
-            // todo: lançar exceções aqui é bom? teria de tratar mais alto nivel eu nao gerar excessão?
-            //throw new Exception("Error! : " . $httpResponse);
+            // o curl não conseguiu contatar o servidor
+            return false;
         }
 
-        if (isset($args['naoexiste_str'])) {
-            //print_r($args);
-            if (strpos($httpResponse, utf8_decode($args['naoexiste_str'])) !== false) {
-                //throw new Exception ($args['naoexiste_str']);
-            }
+        // coloquei o utf8_decode no httpresponse pois no cmd não tava comparando
+        if (strpos(utf8_decode($httpResponse), utf8_decode($args['naoexiste_str'])) !== false or
+            strpos(utf8_decode($httpResponse), utf8_decode($args['naoexiste_str2'])) !== false) {
+            // o servidor respondeu que não existe esse bem
+            return false;
         }
+
         return $httpResponse;
     }
 
@@ -133,7 +161,8 @@ class dadosUsp
         return array_filter($array);
     }
 
-    public static function showData($xml) // mostra formatado em html (para testes)
+    // mostra formatado em html (para testes)
+    public static function showData($xml)
     {
         $data = dadosUsp::xml2array($xml);
         $ret = '';
